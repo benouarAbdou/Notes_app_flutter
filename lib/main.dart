@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:notes/Components/myNote.dart';
 import 'package:notes/myDataBase.dart';
 import 'package:notes/pages/noteDetails.dart';
+import 'package:notes/provider/theme.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -13,9 +22,40 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      systemNavigationBarColor: themeProvider.isDarkMode
+          ? const Color(0xFF0D1333) // Dark mode navigation bar color
+          : Colors.white, // Light mode navigation bar color
+    ));
+
     return MaterialApp(
+      title: "My notes",
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: false),
+      theme: ThemeData(
+        useMaterial3: false,
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            backgroundColor: Colors.blueAccent),
+        brightness:
+            themeProvider.isDarkMode ? Brightness.dark : Brightness.light,
+        primaryColor: themeProvider.isDarkMode ? Colors.black : Colors.white,
+        scaffoldBackgroundColor:
+            themeProvider.isDarkMode ? const Color(0xFF0D1333) : Colors.white,
+        cardColor: themeProvider.isDarkMode
+            ? const Color(0xFF242947)
+            : const Color(0xffEFF2F9),
+        appBarTheme: AppBarTheme(
+          backgroundColor:
+              themeProvider.isDarkMode ? Colors.black : Colors.white,
+        ),
+        textTheme: TextTheme(
+          bodyLarge: TextStyle(
+              color: themeProvider.isDarkMode ? Colors.white : Colors.black),
+          bodyMedium: TextStyle(
+              color: themeProvider.isDarkMode ? Colors.white : Colors.black),
+        ),
+      ),
       home: const MyHomePage(),
     );
   }
@@ -53,7 +93,6 @@ class _MyHomePageState extends State<MyHomePage> {
         id: item["noteId"],
         title: item['title'],
         content: item['content'],
-        color: _mapColorFromIndex(item['iconColorIndex']),
         date: DateTime.parse(item["date"]),
       );
       fetchedNotes.add(note);
@@ -75,136 +114,105 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Color _mapColorFromIndex(int colorIndex) {
-    switch (colorIndex) {
-      case 0:
-        return Colors.blueAccent;
-      case 1:
-        return Colors.redAccent;
-      case 2:
-        return Colors.greenAccent;
-      case 3:
-        return Colors.yellowAccent;
-      case 4:
-        return Colors.purpleAccent;
-      case 5:
-        return Colors.orangeAccent;
-      default:
-        return Colors.blueAccent;
-    }
-  }
-
   void deleteNote(BuildContext context, int id) async {
     SqlDb database = SqlDb();
     await database.deleteData('DELETE FROM note WHERE noteId = $id');
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Note deleted')),
     );
-    fetchNotesFromDatabase(); // Refresh notes after deletion
+    fetchNotesFromDatabase();
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     List<Widget> column1 = [];
     List<Widget> column2 = [];
 
     for (int i = 0; i < filteredNotes.length; i++) {
+      var noteCard = ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Slidable(
+          endActionPane: ActionPane(
+            extentRatio: 1,
+            motion: const StretchMotion(),
+            children: [
+              SlidableAction(
+                onPressed: (context) {
+                  deleteNote(context, filteredNotes[i].id);
+                },
+                backgroundColor: Colors.red,
+                icon: Icons.delete,
+              ),
+            ],
+          ),
+          child: GestureDetector(
+            onTap: () {
+              navigateToNoteDetailsPage(filteredNotes[i]);
+            },
+            child: Container(
+              color: Theme.of(context).cardColor,
+              child: filteredNotes[i],
+            ),
+          ),
+        ),
+      );
+
       if (i % 2 == 0) {
-        column1.add(
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Slidable(
-              endActionPane: ActionPane(
-                extentRatio: 1,
-                motion: const StretchMotion(),
-                children: [
-                  SlidableAction(
-                    onPressed: (context) {
-                      deleteNote(context, filteredNotes[i].id);
-                    },
-                    backgroundColor: Colors.red,
-                    icon: Icons.delete,
-                  ),
-                ],
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  navigateToNoteDetailsPage(filteredNotes[i]);
-                },
-                child: filteredNotes[i],
-              ),
-            ),
-          ),
-        );
-        column1.add(
-          const SizedBox(
-            height: 10,
-          ),
-        );
+        column1.add(noteCard);
+        column1.add(const SizedBox(height: 10));
       } else {
-        column2.add(
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Slidable(
-              endActionPane: ActionPane(
-                extentRatio: 1,
-                motion: const StretchMotion(),
-                children: [
-                  SlidableAction(
-                    onPressed: (context) {
-                      deleteNote(context, filteredNotes[i].id);
-                    },
-                    backgroundColor: Colors.red,
-                    icon: Icons.delete,
-                  ),
-                ],
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  navigateToNoteDetailsPage(filteredNotes[i]);
-                },
-                child: filteredNotes[i],
-              ),
-            ),
-          ),
-        );
-        column2.add(
-          const SizedBox(
-            height: 10,
-          ),
-        );
+        column2.add(noteCard);
+        column2.add(const SizedBox(height: 10));
       }
     }
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        elevation: 0,
-        onPressed: () {
-          navigateToNoteDetailsPage(null); // Passing null means add new note
-        },
-        child: const Icon(Icons.add),
+      floatingActionButton: Container(
+        margin: const EdgeInsets.only(bottom: 25),
+        child: FloatingActionButton(
+          elevation: 0,
+          onPressed: () {
+            navigateToNoteDetailsPage(null);
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                "My notes",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "My notes",
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(themeProvider.isDarkMode
+                        ? Icons.light_mode
+                        : Icons.dark_mode),
+                    onPressed: () {
+                      themeProvider.toggleTheme();
+                    },
+                  ),
+                ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF2F9),
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: TextField(
@@ -218,18 +226,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 child: Row(
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
-                      width: 20,
-                    ),
+                    const SizedBox(width: 20),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -237,9 +241,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         children: column1,
                       ),
                     ),
-                    const SizedBox(
-                      width: 10,
-                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -247,9 +249,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         children: column2,
                       ),
                     ),
-                    const SizedBox(
-                      width: 20,
-                    ),
+                    const SizedBox(width: 20),
                   ],
                 ),
               ),
@@ -274,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     if (result) {
-      fetchNotesFromDatabase(); // Refresh notes after returning from details page
+      fetchNotesFromDatabase();
     }
   }
 }
