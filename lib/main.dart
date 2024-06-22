@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:notes/Components/myNote.dart';
 import 'package:notes/myDataBase.dart';
 import 'package:notes/pages/noteDetails.dart';
@@ -29,11 +30,16 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<MyNote> notes = [];
+  List<MyNote> filteredNotes = [];
+  TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     fetchNotesFromDatabase();
+    searchController.addListener(() {
+      filterNotes();
+    });
   }
 
   void fetchNotesFromDatabase() async {
@@ -55,6 +61,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
     setState(() {
       notes = fetchedNotes;
+      filteredNotes = fetchedNotes;
+    });
+  }
+
+  void filterNotes() {
+    String query = searchController.text.toLowerCase();
+    setState(() {
+      filteredNotes = notes.where((note) {
+        return note.title.toLowerCase().contains(query) ||
+            note.content.toLowerCase().contains(query);
+      }).toList();
     });
   }
 
@@ -77,28 +94,83 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void deleteNote(BuildContext context, int id) async {
+    SqlDb database = SqlDb();
+    await database.deleteData('DELETE FROM note WHERE noteId = $id');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Note deleted')),
+    );
+    fetchNotesFromDatabase(); // Refresh notes after deletion
+  }
+
   @override
   Widget build(BuildContext context) {
     List<Widget> column1 = [];
     List<Widget> column2 = [];
 
-    for (int i = 0; i < notes.length; i++) {
+    for (int i = 0; i < filteredNotes.length; i++) {
       if (i % 2 == 0) {
         column1.add(
-          GestureDetector(
-            onTap: () {
-              navigateToNoteDetailsPage(notes[i]);
-            },
-            child: notes[i],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Slidable(
+              endActionPane: ActionPane(
+                extentRatio: 1,
+                motion: const StretchMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (context) {
+                      deleteNote(context, filteredNotes[i].id);
+                    },
+                    backgroundColor: Colors.red,
+                    icon: Icons.delete,
+                  ),
+                ],
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  navigateToNoteDetailsPage(filteredNotes[i]);
+                },
+                child: filteredNotes[i],
+              ),
+            ),
+          ),
+        );
+        column1.add(
+          const SizedBox(
+            height: 10,
           ),
         );
       } else {
         column2.add(
-          GestureDetector(
-            onTap: () {
-              navigateToNoteDetailsPage(notes[i]);
-            },
-            child: notes[i],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Slidable(
+              endActionPane: ActionPane(
+                extentRatio: 1,
+                motion: const StretchMotion(),
+                children: [
+                  SlidableAction(
+                    onPressed: (context) {
+                      deleteNote(context, filteredNotes[i].id);
+                    },
+                    backgroundColor: Colors.red,
+                    icon: Icons.delete,
+                  ),
+                ],
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  navigateToNoteDetailsPage(filteredNotes[i]);
+                },
+                child: filteredNotes[i],
+              ),
+            ),
+          ),
+        );
+        column2.add(
+          const SizedBox(
+            height: 10,
           ),
         );
       }
@@ -135,8 +207,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: const Color(0xFFEFF2F9),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const TextField(
-                  decoration: InputDecoration(
+                child: TextField(
+                  controller: searchController,
+                  decoration: const InputDecoration(
                     hintText: "Search note...",
                     prefixIcon: Icon(Icons.search),
                     border: InputBorder.none,
@@ -165,7 +238,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     const SizedBox(
-                      width: 20,
+                      width: 10,
                     ),
                     Expanded(
                       child: Column(
