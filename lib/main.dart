@@ -1,67 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:notes/Components/myNote.dart';
+import 'package:notes/myDataBase.dart';
+import 'package:notes/pages/noteDetails.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: false,
-      ),
+      theme: ThemeData(useMaterial3: false),
       home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key});
+  const MyHomePage({Key? key}) : super(key: key);
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List<MyNote> notes = [
-    const MyNote(
-      title: "What is Lorem Ipsum? a reader will be distracted by t",
-      content:
-          "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using",
-      color: Colors.blueAccent,
-    ),
-    const MyNote(
-      title: "What is Lorem Ipsum?",
-      content:
-          "It is a long established fact that a reade content of a page when looking at its layout. The point of using Lorem tters, as opposed to using",
-      color: Colors.redAccent,
-    ),
-    const MyNote(
-      title: "What is Lorem Ipsum?",
-      content: "Content 3",
-      color: Colors.greenAccent,
-    ),
-    const MyNote(
-      title: "What is Lorem Ipsum?",
-      content: "Content 4",
-      color: Colors.yellowAccent,
-    ),
-    const MyNote(
-      title: "What is Lorem Ipsum?",
-      content: "Content 5",
-      color: Colors.purpleAccent,
-    ),
-    const MyNote(
-      title: "What is Lorem Ipsum?",
-      content: "Content 6",
-      color: Colors.orangeAccent,
-    ),
-  ];
+  List<MyNote> notes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchNotesFromDatabase();
+  }
+
+  void fetchNotesFromDatabase() async {
+    SqlDb database = SqlDb();
+    List<Map<String, dynamic>> data =
+        await database.readData('SELECT * FROM note');
+    List<MyNote> fetchedNotes = [];
+
+    for (var item in data) {
+      MyNote note = MyNote(
+        id: item["noteId"],
+        title: item['title'],
+        content: item['content'],
+        color: _mapColorFromIndex(item['iconColorIndex']),
+        date: DateTime.parse(item["date"]),
+      );
+      fetchedNotes.add(note);
+    }
+
+    setState(() {
+      notes = fetchedNotes;
+    });
+  }
+
+  Color _mapColorFromIndex(int colorIndex) {
+    switch (colorIndex) {
+      case 0:
+        return Colors.blueAccent;
+      case 1:
+        return Colors.redAccent;
+      case 2:
+        return Colors.greenAccent;
+      case 3:
+        return Colors.yellowAccent;
+      case 4:
+        return Colors.purpleAccent;
+      case 5:
+        return Colors.orangeAccent;
+      default:
+        return Colors.blueAccent;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +84,23 @@ class _MyHomePageState extends State<MyHomePage> {
 
     for (int i = 0; i < notes.length; i++) {
       if (i % 2 == 0) {
-        column1.add(notes[i]);
+        column1.add(
+          GestureDetector(
+            onTap: () {
+              navigateToNoteDetailsPage(notes[i]);
+            },
+            child: notes[i],
+          ),
+        );
       } else {
-        column2.add(notes[i]);
+        column2.add(
+          GestureDetector(
+            onTap: () {
+              navigateToNoteDetailsPage(notes[i]);
+            },
+            child: notes[i],
+          ),
+        );
       }
     }
 
@@ -80,7 +108,9 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         elevation: 0,
-        onPressed: () {},
+        onPressed: () {
+          navigateToNoteDetailsPage(null); // Passing null means add new note
+        },
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
@@ -155,5 +185,23 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  void navigateToNoteDetailsPage(MyNote? note) async {
+    bool result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NoteDetailsPage(
+          id: note?.id,
+          title: note?.title ?? "",
+          content: note?.content ?? "",
+          createdAt: note?.date ?? DateTime.now(),
+        ),
+      ),
+    );
+
+    if (result) {
+      fetchNotesFromDatabase(); // Refresh notes after returning from details page
+    }
   }
 }

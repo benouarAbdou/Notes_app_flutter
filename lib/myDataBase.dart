@@ -38,10 +38,10 @@ class SqlDb {
     await db.execute('''
 CREATE TABLE "note" (
    "noteId" INTEGER  NOT NULL PRIMARY KEY  AUTOINCREMENT, 
-    "title" TEXT NOT NULL,
+    "title" TEXT,
     "iconColorIndex" INTEGER NOT NULL,
-    "content" TEXT
-    
+    "content" TEXT,
+    "date" DATETIME
   ) ''');
 
     print("notes created");
