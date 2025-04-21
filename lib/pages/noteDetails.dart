@@ -1,51 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:notes/myDataBase.dart';
+import 'package:get/get.dart';
+import 'package:notes/controllers/NoteController.dart';
+import 'package:notes/models/note.dart';
 
 class NoteDetailsPage extends StatelessWidget {
-  final int? id; // Make id optional
-  final String title;
-  final String content;
-  final DateTime createdAt;
+  final Note? note;
 
-  const NoteDetailsPage({
-    Key? key,
-    this.id, // Declare id as optional
-    required this.title,
-    required this.content,
-    required this.createdAt,
-  }) : super(key: key);
+  const NoteDetailsPage({super.key, this.note});
 
   @override
   Widget build(BuildContext context) {
-    TextEditingController titleController = TextEditingController(text: title);
-    TextEditingController contentController =
-        TextEditingController(text: content);
+    final NoteController noteController = Get.find();
+    final TextEditingController titleController =
+        TextEditingController(text: note?.title ?? '');
+    final TextEditingController contentController =
+        TextEditingController(text: note?.content ?? '');
+    final createdAt = note?.date ?? DateTime.now();
 
     String formattedDate =
         "${createdAt.day}/${createdAt.month}/${createdAt.year}";
-    String characterCount = content.replaceAll(' ', '').length.toString();
+    final characterCount =
+        contentController.text.replaceAll(' ', '').length.obs;
 
-    void saveNote() async {
-      SqlDb database = SqlDb();
-      if (id != null) {
-        // Update existing note
-        String sql = '''
-          UPDATE note 
-          SET title = '${titleController.text}', 
-              content = '${contentController.text}'
-          WHERE noteId = $id
-        ''';
-        await database.updateData(sql);
-      } else {
-        // Insert new note
-        String sql = '''
-          INSERT INTO note (title, content, iconColorIndex, date)
-          VALUES ('${titleController.text}', '${contentController.text}', 0, '${createdAt.toIso8601String()}')
-        ''';
-        await database.insertData(sql);
-      }
+    contentController.addListener(() {
+      characterCount.value = contentController.text.replaceAll(' ', '').length;
+    });
 
-      Navigator.pop(context, true); // Pass true to indicate success
+    void saveNote() {
+      noteController.addOrUpdateNote(
+        id: note?.id,
+        title: titleController.text,
+        content: contentController.text,
+        date: createdAt,
+      );
+      Get.back(result: true);
     }
 
     return Scaffold(
@@ -60,14 +48,11 @@ class NoteDetailsPage extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios),
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
+                    onPressed: () => Get.back(),
                   ),
                   IconButton(
                     icon: const Icon(Icons.check),
-                    onPressed:
-                        saveNote, // Call saveNote function on check button press
+                    onPressed: saveNote,
                   ),
                 ],
               ),
@@ -96,10 +81,11 @@ class NoteDetailsPage extends StatelessWidget {
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(width: 5),
-                  Text(
-                    'Characters: $characterCount',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
+                  Obx(() => Text(
+                        'Characters: ${characterCount.value}',
+                        style:
+                            const TextStyle(fontSize: 14, color: Colors.grey),
+                      )),
                 ],
               ),
               const SizedBox(height: 20),
